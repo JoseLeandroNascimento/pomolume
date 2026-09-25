@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<journey name="Complete a focus session and review history">
+    <description>With fresh app data, verify a one-minute focus session can be paused, resumed and completed, and that only one completed session appears in today's history.</description>
+    <actions xml:space="preserve">
+        <action>Verify that 'Sessão de foco' and the 'Iniciar' button are visible</action>
+        <action>Tap the 'Configurações' button</action>
+        <action>Tap 'Duração do foco'</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Tap the 'Diminuir duração' button</action>
+        <action>Verify that the selected duration is '1 min'</action>
+        <action>Tap 'Salvar'</action>
+        <action>Tap the 'Voltar' button</action>
+        <action>Verify that the timer shows '01:00'</action>
+        <action>Tap 'Iniciar'</action>
+        <action>If the 'Receber avisos de sessão' dialog appears, tap 'Permitir'</action>
+        <action>If Android asks for notification permission, allow notifications</action>
+        <action>Wait 5 seconds</action>
+        <action>Tap 'Pausar'</action>
+        <action>Verify that the 'Continuar' button is visible</action>
+        <action>Remember the remaining time shown by the timer</action>
+        <action>Wait 5 seconds</action>
+        <action>Verify that the remaining time has not changed while paused</action>
+        <action>Tap 'Continuar'</action>
+        <action>Verify that the 'Pausar' button is visible</action>
+        <action>Wait 65 seconds</action>
+        <action>Verify that 'Pausa curta' and the 'Iniciar' button are visible</action>
+        <action>Tap 'Histórico'</action>
+        <action>Verify that the summary displays '1 Pomodoro concluído'</action>
+        <action>Verify that exactly one history row shows 'Sessão de foco' and 'Concluído'</action>
+        <action>Tap 'Pomodoro'</action>
+        <action>Tap 'Histórico'</action>
+        <action>Verify that the summary still displays '1 Pomodoro concluído'</action>
+    </actions>
+</journey>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<journey name="Preserve timer across Activity recreation">
+    <description>With fresh app data and device auto-rotation enabled, verify configuration changes preserve a running or paused session without duplicate history.</description>
+    <actions xml:space="preserve">
+        <action>Verify that the timer shows '25:00'</action>
+        <action>Tap 'Iniciar'</action>
+        <action>If the 'Receber avisos de sessão' dialog appears, tap 'Permitir'</action>
+        <action>If Android asks for notification permission, allow notifications</action>
+        <action>Wait 5 seconds</action>
+        <action>Remember the remaining time shown by the timer</action>
+        <action>Rotate the device to landscape orientation</action>
+        <action>Verify that 'Sessão de foco' and the 'Pausar' button are visible</action>
+        <action>Verify that the timer is lower than the remembered time and has not reset to '25:00'</action>
+        <action>Tap 'Pausar'</action>
+        <action>Remember the remaining time shown by the timer</action>
+        <action>Rotate the device back to portrait orientation</action>
+        <action>Verify that the 'Continuar' button is visible</action>
+        <action>Verify that the remaining time is unchanged</action>
+        <action>Tap 'Histórico'</action>
+        <action>Verify that 'Nenhuma sessão ainda' is visible</action>
+        <action>Tap 'Pomodoro'</action>
+        <action>Verify that the remaining time is unchanged</action>
+        <action>Tap 'Continuar'</action>
+        <action>Verify that the 'Pausar' button is visible</action>
+    </actions>
+</journey>

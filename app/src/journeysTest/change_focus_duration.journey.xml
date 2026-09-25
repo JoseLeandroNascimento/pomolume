@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<journey name="Change and persist focus duration">
+    <description>With fresh app data, change the focus duration from 25 to 30 minutes and verify the idle timer and settings reflect the saved value.</description>
+    <actions xml:space="preserve">
+        <action>Verify that the timer shows '25:00'</action>
+        <action>Tap the 'Configurações' button</action>
+        <action>Tap 'Duração do foco'</action>
+        <action>Tap the 'Aumentar duração' button</action>
+        <action>Tap the 'Aumentar duração' button</action>
+        <action>Tap the 'Aumentar duração' button</action>
+        <action>Tap the 'Aumentar duração' button</action>
+        <action>Tap the 'Aumentar duração' button</action>
+        <action>Verify that the selected duration is '30 min'</action>
+        <action>Tap 'Salvar'</action>
+        <action>Tap the 'Voltar' button</action>
+        <action>Verify that the timer shows '30:00'</action>
+        <action>Tap the 'Configurações' button</action>
+        <action>Tap 'Duração do foco'</action>
+        <action>Verify that the selected duration is still '30 min'</action>
+        <action>Tap 'Cancelar'</action>
+        <action>Tap the 'Voltar' button</action>
+        <action>Tap 'Iniciar'</action>
+        <action>If the 'Receber avisos de sessão' dialog appears, tap 'Permitir'</action>
+        <action>If Android asks for notification permission, allow notifications</action>
+        <action>Wait 3 seconds</action>
+        <action>Tap 'Pausar'</action>
+        <action>Remember the remaining time shown by the timer</action>
+        <action>Tap the 'Configurações' button</action>
+        <action>Tap 'Duração do foco'</action>
+        <action>Tap the 'Aumentar duração' button</action>
+        <action>Tap 'Salvar'</action>
+        <action>Tap the 'Voltar' button</action>
+        <action>Verify that the paused remaining time is unchanged</action>
+    </actions>
+</journey>

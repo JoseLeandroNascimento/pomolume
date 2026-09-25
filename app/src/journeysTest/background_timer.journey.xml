@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<journey name="Continue a focus session in the background">
+    <description>With fresh app data, verify that a running focus session continues when the app is minimized, and that the persistent notification offers working pause and resume controls.</description>
+    <actions xml:space="preserve">
+        <action>Verify that the timer shows '25:00'</action>
+        <action>Tap 'Iniciar'</action>
+        <action>If the 'Receber avisos de sessão' dialog appears, tap 'Permitir'</action>
+        <action>If Android asks for notification permission, allow notifications</action>
+        <action>Wait 3 seconds</action>
+        <action>Remember the remaining time shown by the timer</action>
+        <action>Press the device Home button</action>
+        <action>Wait 10 seconds</action>
+        <action>Return to PomoLume using the device recent apps screen</action>
+        <action>Verify that 'Sessão de foco' and the 'Pausar' button are visible</action>
+        <action>Verify that the remaining time is at least 10 seconds lower than the previously remembered time</action>
+        <action>Open the device notification shade</action>
+        <action>Verify that the ongoing session notification is visible</action>
+        <action>Tap 'Pausar' in the ongoing session notification</action>
+        <action>Return to PomoLume using the device recent apps screen</action>
+        <action>Verify that the 'Continuar' button is visible</action>
+        <action>Remember the remaining time shown by the timer</action>
+        <action>Press the device Home button</action>
+        <action>Wait 5 seconds</action>
+        <action>Return to PomoLume using the device recent apps screen</action>
+        <action>Verify that the remaining time has not changed while paused</action>
+        <action>Tap 'Continuar'</action>
+        <action>Verify that the 'Pausar' button is visible</action>
+    </actions>
+</journey>
