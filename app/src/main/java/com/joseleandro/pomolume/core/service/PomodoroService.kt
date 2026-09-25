@@ -11,7 +11,9 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import com.joseleandro.pomolume.R
 import com.joseleandro.pomolume.core.notification.PomodoroNotifications
+import com.joseleandro.pomolume.core.notification.deliverCompletion
 import com.joseleandro.pomolume.feature.pomodoro.domain.*
 import com.joseleandro.pomolume.feature.settings.domain.SettingsRepository
 import kotlinx.coroutines.*
@@ -19,10 +21,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.koin.android.ext.android.inject
+import java.util.concurrent.atomic.AtomicInteger
 
 /** The persisted deadline is the clock; this service only refreshes its presentation. */
 class PomodoroService : Service() {
     private val repository: PomodoroRepository by inject()
+    private val controller: PomodoroServiceController by inject()
     private val settings: SettingsRepository by inject()
     private val notifications: PomodoroNotifications by inject()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -44,20 +48,25 @@ class PomodoroService : Service() {
             repository.completions.collect { event ->
                 pendingNotifications++
                 try {
-                    notifications.completed(event, settings.observeSettings().first())
+                    deliverCompletion(event,
+                        readSettings = { settings.observeSettings().first() },
+                        notify = notifications::completed)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
-                    // A notification/storage failure must never undo a committed history row.
+                    // Notification failures never undo a committed history record.
                 } finally {
                     pendingNotifications--
                     requestStopWhenIdle()
                 }
             }
         }
+        // Registration happens before releasing cold-start command callers.
+        activeService = this
+        ready.complete(Unit)
         scope.launch {
             while (isActive) {
-                delay(500)
+                delay(250)
                 if (initialized) commandMutex.withLock {
                     repository.refresh()
                     reconcile()
@@ -68,6 +77,7 @@ class PomodoroService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         latestStartId = startId
+        stopJob?.cancel()
         scope.launch {
             val wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PomoLume:transition")
@@ -75,7 +85,20 @@ class PomodoroService : Service() {
             try {
                 commandMutex.withLock {
                     val action = intent?.action?.let { raw -> PomodoroAction.entries.find { it.name == raw } }
-                    if (action != null) repository.execute(action) else repository.refresh()
+                    if (action != null) {
+                        val expectedSessionId = intent.getStringExtra(PomodoroNotifications.EXTRA_SESSION_ID)
+                        if (expectedSessionId != null) controller.dispatchForSession(action, expectedSessionId)
+                        // An old notification without identity must not mutate a new session.
+                        else if (action == PomodoroAction.CANCEL) controller.dispatch(action)
+                    } else repository.refresh()
+                    processedStartId = startId
+                    initialized = true
+                    reconcile()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                commandMutex.withLock {
                     processedStartId = startId
                     initialized = true
                     reconcile()
@@ -89,18 +112,17 @@ class PomodoroService : Service() {
 
     private fun reconcile() {
         val state = repository.state.value
-        val active = state.timerState == TimerState.RUNNING || state.timerState == TimerState.PAUSED ||
-            state.timerState == TimerState.COMPLETED || state.error != null
+        val active = state.timerState != TimerState.IDLE || state.pendingTransition != null || state.error != null
         val deadline = state.expectedEndAt.takeIf { state.timerState == TimerState.RUNNING }
         if (deadline != scheduledEnd) {
-            scheduleDeadline(deadline)
+            scheduleDeadline(this, deadline)
             scheduledEnd = deadline
         }
         if (!active && !state.isLoading) {
             requestStopWhenIdle()
             return
         }
-        val key = "${state.sessionType}:${state.timerState}:${state.remainingTimeMillis / 1000}:${state.error}"
+        val key = "${state.sessionId}:${state.sessionType}:${state.timerState}:${state.remainingTimeMillis / 1000}:${state.error}"
         if (key != lastNotificationKey) {
             notifications.update(state)
             lastNotificationKey = key
@@ -110,12 +132,15 @@ class PomodoroService : Service() {
     private fun requestStopWhenIdle() {
         stopJob?.cancel()
         stopJob = scope.launch {
-            // Drain the completion collector resumed by the engine before stopping.
+            // Drain the completion collector before removing foreground execution.
             yield()
             commandMutex.withLock {
                 val state = repository.state.value
                 if (state.timerState == TimerState.IDLE && !state.isLoading &&
-                    state.error == null && pendingNotifications == 0 && processedStartId == latestStartId) {
+                    state.error == null && pendingNotifications == 0 && activeCommands.get() == 0 &&
+                    processedStartId == latestStartId) {
+                    scheduleDeadline(this@PomodoroService, null)
+                    scheduledEnd = null
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelfResult(processedStartId)
                 }
@@ -123,56 +148,98 @@ class PomodoroService : Service() {
         }
     }
 
-    private fun scheduleDeadline(deadline: Long?) {
-        val alarm = getSystemService(AlarmManager::class.java)
-        val intent = Intent(this, PomodoroService::class.java).setAction(ACTION_RECOVER)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        val pending = if (Build.VERSION.SDK_INT >= 26) PendingIntent.getForegroundService(this, 500, intent, flags)
-        else PendingIntent.getService(this, 500, intent, flags)
-        alarm.cancel(pending)
-        if (deadline == null) return
-        if (Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()) {
-            try {
-                alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deadline, pending)
-                return
-            } catch (_: SecurityException) {
-                // The user can revoke alarm access between checking and scheduling.
-            }
+    private fun requestReconciliation() {
+        scope.launch {
+            commandMutex.withLock { reconcile() }
         }
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deadline, pending)
     }
 
     override fun onDestroy() {
+        if (activeService === this) {
+            activeService = null
+            ready = CompletableDeferred()
+        }
         scope.cancel()
-        // Keep a running deadline alarm: it can recover a system-killed service.
+        // Keep a running deadline alarm so a system-killed service can recover.
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    companion object { const val ACTION_RECOVER = "com.joseleandro.pomolume.RECOVER" }
+    companion object {
+        const val ACTION_RECOVER = "com.joseleandro.pomolume.RECOVER"
+        @Volatile private var activeService: PomodoroService? = null
+        @Volatile private var ready = CompletableDeferred<Unit>()
+        private val activeCommands = AtomicInteger()
+
+        fun beginCommand() { activeCommands.incrementAndGet() }
+
+        fun endCommand() {
+            activeCommands.decrementAndGet()
+            activeService?.requestReconciliation()
+        }
+
+        suspend fun ensureReady(context: Context) {
+            val signal = ready
+            ContextCompat.startForegroundService(context,
+                Intent(context, PomodoroService::class.java).setAction(ACTION_RECOVER))
+            withTimeout(10_000) { signal.await() }
+        }
+
+        fun stopWhenIdle(context: Context) {
+            scheduleDeadline(context, null)
+            val service = activeService
+            if (service != null) service.requestReconciliation()
+            else context.getSystemService(android.app.NotificationManager::class.java)
+                .cancel(PomodoroNotifications.ONGOING_ID)
+        }
+
+        private fun scheduleDeadline(context: Context, deadline: Long?) {
+            val alarm = context.getSystemService(AlarmManager::class.java)
+            val intent = Intent(context, PomodoroService::class.java).setAction(ACTION_RECOVER)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val pending = if (Build.VERSION.SDK_INT >= 26) PendingIntent.getForegroundService(context, 500, intent, flags)
+            else PendingIntent.getService(context, 500, intent, flags)
+            alarm.cancel(pending)
+            if (deadline == null) return
+            if (Build.VERSION.SDK_INT < 31 || alarm.canScheduleExactAlarms()) {
+                try {
+                    alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deadline, pending)
+                    return
+                } catch (_: SecurityException) {
+                    // Alarm access can be revoked between checking and scheduling.
+                }
+            }
+            alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deadline, pending)
+        }
+    }
 }
 
 class AndroidPomodoroServiceController(
-    private val context: Context,
-    private val repository: PomodoroRepository,
-    private val store: TimerStateStore
+    context: Context,
+    repository: PomodoroRepository,
+    store: TimerStateStore
 ) : PomodoroServiceController {
-    override suspend fun dispatch(action: PomodoroAction) {
-        startService(action.name)
-    }
-
-    override suspend fun recover() {
-        val saved = store.read()
-        if (saved != null && saved.timerState != TimerState.IDLE) startService(PomodoroService.ACTION_RECOVER)
-        else repository.restore()
-    }
-
-    private fun startService(action: String) {
-        try {
-            ContextCompat.startForegroundService(context, Intent(context, PomodoroService::class.java).setAction(action))
-        } catch (exception: Exception) {
-            throw IllegalStateException("Não foi possível iniciar o timer. Abra o aplicativo e tente novamente.", exception)
+    private val delegate = PomodoroCommandCoordinator(repository, store, object : PomodoroRuntime {
+        override suspend fun start() {
+            try {
+                PomodoroService.ensureReady(context)
+            } catch (timeout: TimeoutCancellationException) {
+                throw IllegalStateException(context.getString(R.string.notification_start_error), timeout)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (exception: Exception) {
+                throw IllegalStateException(context.getString(R.string.notification_start_error), exception)
+            }
         }
-    }
+
+        override fun stop() = PomodoroService.stopWhenIdle(context)
+        override fun beginCommand() = PomodoroService.beginCommand()
+        override fun endCommand() = PomodoroService.endCommand()
+    })
+
+    override suspend fun dispatch(action: PomodoroAction) = delegate.dispatch(action)
+    override suspend fun dispatchForSession(action: PomodoroAction, sessionId: String) =
+        delegate.dispatchForSession(action, sessionId)
+    override suspend fun recover() = delegate.recover()
 }

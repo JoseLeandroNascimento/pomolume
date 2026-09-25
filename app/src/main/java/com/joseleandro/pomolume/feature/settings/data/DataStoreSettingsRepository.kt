@@ -34,6 +34,6 @@ class DataStoreSettingsRepository(
 
     companion object {
         internal val SETTINGS = stringPreferencesKey("pomodoro_settings_v1")
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; coerceInputValues = true }
     }
 }

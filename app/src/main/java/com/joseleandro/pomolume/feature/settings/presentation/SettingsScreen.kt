@@ -1,49 +1,39 @@
 package com.joseleandro.pomolume.feature.settings.presentation
 
-import androidx.compose.foundation.clickable
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.joseleandro.pomolume.R
 import com.joseleandro.pomolume.core.design.*
 import com.joseleandro.pomolume.feature.settings.domain.*
 
-enum class DurationSetting(val title: String, val maximum: Int) {
-    FOCUS("Duração do foco", 120), SHORT("Pausa curta", 60),
-    LONG("Pausa longa", 120), CYCLES("Pausa longa após", 10);
-
-    fun value(settings: PomodoroSettings) = when (this) {
-        FOCUS -> settings.focusDurationMinutes
-        SHORT -> settings.shortBreakDurationMinutes
-        LONG -> settings.longBreakDurationMinutes
-        CYCLES -> settings.cyclesBeforeLongBreak
-    }
-
-    fun apply(settings: PomodoroSettings, value: Int) = when (this) {
-        FOCUS -> settings.copy(focusDurationMinutes = value)
-        SHORT -> settings.copy(shortBreakDurationMinutes = value)
-        LONG -> settings.copy(longBreakDurationMinutes = value)
-        CYCLES -> settings.copy(cyclesBeforeLongBreak = value)
-    }
-}
-
-fun AppTheme.label(): String = when (this) {
-    AppTheme.SYSTEM -> "Sistema"
-    AppTheme.LIGHT -> "Claro"
-    AppTheme.DARK -> "Escuro"
+@get:StringRes
+val AppTheme.labelRes: Int get() = when (this) {
+    AppTheme.SYSTEM -> R.string.settings_theme_system
+    AppTheme.LIGHT -> R.string.settings_theme_light
+    AppTheme.DARK -> R.string.settings_theme_dark
 }
 
 @Composable
@@ -56,126 +46,138 @@ fun SettingsScreen(
     var editing by rememberSaveable { mutableStateOf<DurationSetting?>(null) }
     var showTheme by rememberSaveable { mutableStateOf(false) }
     val settings = state.settings
-    val enabled = !state.isLoading && !state.isSaving
-    LazyColumn(modifier = Modifier.fillMaxSize().testTag("settings_list"), contentPadding = PaddingValues(bottom = AppSpacing.large)) {
-        if (state.isLoading) item {
-            Box(Modifier.fillMaxWidth().padding(AppSpacing.page), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        }
-        state.error?.let { message -> item { PomoError(message, onRetry, Modifier.fillMaxWidth()) } }
-        item { PomodoroSectionTitle("POMODORO") }
-        items(DurationSetting.entries.size) { index ->
-            val field = DurationSetting.entries[index]
-            PomodoroSettingItem(field.title,
-                "${field.value(settings)} ${if (field == DurationSetting.CYCLES) "Pomodoros" else "minutos"}",
-                enabled = enabled, onClick = { editing = field })
-        }
-        item {
-            Text("Alterações de duração valem para a próxima sessão.",
-                modifier = Modifier.padding(horizontal = AppSpacing.page, vertical = AppSpacing.compact),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        item { PomodoroSectionTitle("AUTOMAÇÃO") }
-        item { PomodoroSettingSwitch("Iniciar pausas automaticamente", settings.autoStartBreak, enabled) { value -> onUpdate { it.copy(autoStartBreak = value) } } }
-        item { PomodoroSettingSwitch("Iniciar foco automaticamente", settings.autoStartFocus, enabled) { value -> onUpdate { it.copy(autoStartFocus = value) } } }
-        item { PomodoroSectionTitle("NOTIFICAÇÕES") }
-        item {
-            PomodoroSettingSwitch("Notificar ao terminar", settings.notificationsEnabled, enabled) { value ->
-                if (value) onEnableNotifications() else onUpdate { it.copy(notificationsEnabled = false) }
+    val enabled = state.canEdit
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().testTag("settings_list"),
+        contentPadding = PaddingValues(horizontal = AppSpacing.page, vertical = AppSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.page)
+    ) {
+        if (state.isLoading) item(key = "loading") {
+            val label = stringResource(R.string.settings_loading)
+            Box(Modifier.fillMaxWidth().padding(AppSpacing.page), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.size(24.dp).semantics { contentDescription = label }, strokeWidth = 2.dp)
             }
         }
-        item { PomodoroSettingSwitch("Som", settings.soundEnabled, enabled) { value -> onUpdate { it.copy(soundEnabled = value) } } }
-        item { PomodoroSettingSwitch("Vibração", settings.vibrationEnabled, enabled) { value -> onUpdate { it.copy(vibrationEnabled = value) } } }
-        item { PomodoroSectionTitle("COMPORTAMENTO") }
-        item { PomodoroSettingSwitch("Manter tela ligada durante sessão", settings.keepScreenOn, enabled) { value -> onUpdate { it.copy(keepScreenOn = value) } } }
-        item { PomodoroSettingSwitch("Confirmar antes de pular sessão", settings.confirmSkip, enabled) { value -> onUpdate { it.copy(confirmSkip = value) } } }
-        item { PomodoroSettingSwitch("Confirmar antes de reiniciar", settings.confirmReset, enabled) { value -> onUpdate { it.copy(confirmReset = value) } } }
-        item { PomodoroSectionTitle("APARÊNCIA") }
-        item { PomodoroSettingItem("Tema", settings.theme.label(), enabled = enabled, onClick = { showTheme = true }) }
+        state.error?.let { message -> item(key = "error") {
+            Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.large) {
+                Column(Modifier.fillMaxWidth().padding(AppSpacing.medium), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    Text(stringResource(message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.settings_retry)) }
+                }
+            }
+        } }
+        item(key = "pomodoro") {
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.compact)) {
+                SettingsSection(stringResource(R.string.settings_section_pomodoro), Icons.Outlined.Timer) {
+                    DurationSetting.entries.forEachIndexed { index, field ->
+                        if (index > 0) SettingsDivider()
+                        PomodoroSettingItem(
+                            stringResource(field.titleRes),
+                            pluralStringResource(if (field == DurationSetting.CYCLES) R.plurals.settings_duration_cycles else R.plurals.settings_duration_minutes, field.value(settings), field.value(settings)),
+                            enabled = enabled, onClick = { editing = field }
+                        )
+                    }
+                }
+                Text(stringResource(R.string.settings_next_session_hint),
+                    modifier = Modifier.padding(horizontal = AppSpacing.tiny),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item(key = "automation") {
+            SettingsSection(stringResource(R.string.settings_section_automation), Icons.Outlined.AutoAwesome) {
+                PomodoroSettingSwitch(stringResource(R.string.settings_autostart_break), settings.autoStartBreak, enabled) { value -> onUpdate { it.copy(autoStartBreak = value) } }
+                SettingsDivider()
+                PomodoroSettingSwitch(stringResource(R.string.settings_autostart_focus), settings.autoStartFocus, enabled) { value -> onUpdate { it.copy(autoStartFocus = value) } }
+            }
+        }
+        item(key = "notifications") {
+            SettingsSection(stringResource(R.string.settings_section_notifications), Icons.Outlined.NotificationsNone) {
+                PomodoroSettingSwitch(stringResource(R.string.settings_notify_completion), settings.notificationsEnabled, enabled) { value ->
+                    if (value) onEnableNotifications() else onUpdate { it.copy(notificationsEnabled = false) }
+                }
+                SettingsDivider()
+                PomodoroSettingSwitch(stringResource(R.string.settings_sound), settings.soundEnabled, enabled) { value -> onUpdate { it.copy(soundEnabled = value) } }
+                SettingsDivider()
+                PomodoroSettingSwitch(stringResource(R.string.settings_vibration), settings.vibrationEnabled, enabled) { value -> onUpdate { it.copy(vibrationEnabled = value) } }
+            }
+        }
+        item(key = "behavior") {
+            SettingsSection(stringResource(R.string.settings_section_behavior), Icons.Outlined.Tune) {
+                PomodoroSettingSwitch(stringResource(R.string.settings_keep_screen_on), settings.keepScreenOn, enabled) { value -> onUpdate { it.copy(keepScreenOn = value) } }
+                SettingsDivider()
+                PomodoroSettingSwitch(stringResource(R.string.settings_confirm_skip), settings.confirmSkip, enabled) { value -> onUpdate { it.copy(confirmSkip = value) } }
+                SettingsDivider()
+                PomodoroSettingSwitch(stringResource(R.string.settings_confirm_reset), settings.confirmReset, enabled) { value -> onUpdate { it.copy(confirmReset = value) } }
+            }
+        }
+        item(key = "personalization") {
+            SettingsSection(stringResource(R.string.settings_section_personalization), Icons.Outlined.Palette) {
+                TimerAppearancePicker(settings.timerAppearance, enabled) { id ->
+                    onUpdate { current -> current.copy(timerAppearance = current.timerAppearance.copy(presetId = id)) }
+                }
+            }
+        }
+        item(key = "appearance") {
+            SettingsSection(stringResource(R.string.settings_section_appearance), Icons.Outlined.Settings) {
+                PomodoroSettingItem(stringResource(R.string.settings_theme), stringResource(settings.theme.labelRes),
+                    enabled = enabled, onClick = { showTheme = true })
+            }
+        }
+        item { Spacer(Modifier.height(AppSpacing.small)) }
     }
     editing?.let { field ->
         DurationDialog(field, field.value(settings), onDismiss = { editing = null }, onSave = { value ->
-            onUpdate { field.apply(it, value) }
+            if (enabled) onUpdate { field.apply(it, value) }
             editing = null
         })
     }
     if (showTheme) {
-        AlertDialog(
-            onDismissRequest = { showTheme = false },
-            title = { Text("Tema") },
-            text = {
-                Column {
-                    AppTheme.entries.forEach { theme ->
-                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).selectable(
-                            selected = settings.theme == theme, role = Role.RadioButton,
-                            onClick = { onUpdate { it.copy(theme = theme) }; showTheme = false }
-                        ), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = settings.theme == theme, onClick = null)
-                            Spacer(Modifier.width(AppSpacing.medium))
-                            Text(theme.label())
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showTheme = false }) { Text("Fechar") } }
+        ThemeDialog(
+            selectedTheme = settings.theme,
+            enabled = enabled,
+            onSelect = { theme -> onUpdate { it.copy(theme = theme) }; showTheme = false },
+            onDismiss = { showTheme = false }
         )
     }
 }
 
 @Composable
-fun PomodoroSettingItem(title: String, value: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = AppSpacing.page, vertical = AppSpacing.medium),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.tiny)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-fun PomodoroSettingSwitch(title: String, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
-            .padding(horizontal = AppSpacing.page, vertical = AppSpacing.small),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(end = AppSpacing.medium))
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
-    }
-}
-
-@Composable
-private fun DurationDialog(field: DurationSetting, initial: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
-    var value by rememberSaveable(field) { mutableIntStateOf(initial) }
+fun ThemeDialog(selectedTheme: AppTheme, enabled: Boolean = true, onSelect: (AppTheme) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(field.title) },
+        title = { Text(stringResource(R.string.settings_theme)) },
         text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { value-- }, enabled = value > 1) {
-                        Icon(Icons.Outlined.Remove, contentDescription = "Diminuir duração")
-                    }
-                    Text("$value ${if (field == DurationSetting.CYCLES) "ciclos" else "min"}",
-                        style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("duration_value"))
-                    IconButton(onClick = { value++ }, enabled = value < field.maximum) {
-                        Icon(Icons.Outlined.Add, contentDescription = "Aumentar duração")
+            Column(Modifier.selectableGroup()) {
+                AppTheme.entries.forEach { theme ->
+                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).selectable(
+                        selected = selectedTheme == theme, enabled = enabled, role = Role.RadioButton,
+                        onClick = { onSelect(theme) }
+                    ), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selectedTheme == theme, onClick = null, enabled = enabled)
+                        Spacer(Modifier.width(AppSpacing.medium))
+                        Text(stringResource(theme.labelRes))
                     }
                 }
-                Spacer(Modifier.height(AppSpacing.small))
-                Text("De 1 a ${field.maximum} ${if (field == DurationSetting.CYCLES) "ciclos" else "minutos"}",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(value.coerceIn(1, field.maximum)) }) { Text("Salvar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) } }
     )
 }
 
-@Preview(showBackground = true)
+@AppThemePreview
 @Composable
-private fun SettingsPreview() = PomoTheme { SettingsScreen(SettingsUiState(isLoading = false), {}, {}, {}) }
+private fun SettingsPreview() = PomoTheme {
+    Surface { SettingsScreen(SettingsUiState(isLoading = false), {}, {}, {}) }
+}
+
+@AppThemePreview
+@Composable
+private fun ThemeDialogPreview() = PomoTheme {
+    ThemeDialog(AppTheme.SYSTEM, onSelect = {}, onDismiss = {})
+}
+
+@Preview(name = "Settings large type", widthDp = 320, heightDp = 640, fontScale = 2f, showBackground = true)
+@Composable
+private fun AccessibleSettingsPreview() = PomoTheme {
+    SettingsScreen(SettingsUiState(isLoading = false), {}, {}, {})
+}

@@ -1,0 +1,24 @@
+<resources>
+    <string name="timer_color_terracotta">Terracota</string>
+    <string name="timer_color_ocean">Oceano</string>
+    <string name="timer_color_sage">Sálvia</string>
+    <string name="timer_color_amber">Âmbar</string>
+    <string name="timer_color_teal">Turquesa</string>
+    <string name="timer_color_rose">Rosa</string>
+    <string name="timer_color_sunset">Pôr do sol</string>
+    <string name="timer_color_coast">Costa</string>
+    <string name="timer_color_forest">Floresta</string>
+    <string name="timer_color_dawn">Amanhecer</string>
+    <string name="session_focus">Foco</string>
+    <string name="session_short_break">Pausa curta</string>
+    <string name="session_long_break">Pausa longa</string>
+    <string name="timer_focus_hint">Uma coisa de cada vez</string>
+    <string name="timer_break_hint">Tempo para respirar</string>
+    <string name="timer_paused_hint">No seu ritmo</string>
+    <string name="common_retry">Tentar novamente</string>
+    <string name="duration_seconds">%1$d s</string>
+    <string name="duration_minutes">%1$d min</string>
+    <string name="duration_hours">%1$d h</string>
+    <string name="duration_hours_minutes">%1$d h %2$d min</string>
+    <string name="timer_remaining_description">%1$s restantes</string>
+</resources>

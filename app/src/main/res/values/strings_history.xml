@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_period_today">Hoje</string>
+    <string name="history_period_week">Semana</string>
+    <string name="history_period_month">Mês</string>
+    <string name="history_period_year">Ano</string>
+    <string name="history_period_all">Tudo</string>
+    <string name="history_your_progress">Seu ritmo de foco</string>
+    <string name="history_focus_time">Tempo de foco</string>
+    <string name="history_no_sessions">Nenhuma sessão ainda</string>
+    <string name="history_empty_description">Conclua um Pomodoro para ver suas sessões neste período.</string>
+    <string name="history_show_all">Ver todo o histórico</string>
+    <string name="history_load_error">Não foi possível carregar o histórico.</string>
+    <string name="history_sessions_title">Suas sessões</string>
+    <string name="history_yesterday">Ontem</string>
+    <string name="history_completed">Concluído</string>
+    <string name="history_cancelled">Cancelado</string>
+    <string name="history_skipped">Pulado</string>
+    <string name="history_item_detail">%1$s · %2$s</string>
+    <string name="history_week_chart_title">Uma semana, um passo de cada vez</string>
+    <string name="history_month_chart_title">Sua constância neste mês</string>
+    <string name="history_year_chart_title">Um ano de pequenos avanços</string>
+    <string name="history_chart_subtitle">Somente sessões de foco concluídas</string>
+    <string name="history_chart_point">%1$s: %2$s de foco</string>
+    <string name="history_chart_scale">Escala de foco: %1$s a %2$s</string>
+    <string name="history_month_day">%1$d de %2$s</string>
+    <string name="history_heatmap_less">Menos</string>
+    <string name="history_heatmap_more">Mais</string>
+    <plurals name="history_completed_count">
+        <item quantity="one">%1$d Pomodoro concluído</item>
+        <item quantity="other">%1$d Pomodoros concluídos</item>
+    </plurals>
+    <plurals name="history_active_days">
+        <item quantity="one">%1$d dia ativo</item>
+        <item quantity="other">%1$d dias ativos</item>
+    </plurals>
+    <string-array name="history_weekdays">
+        <item>Seg</item><item>Ter</item><item>Qua</item><item>Qui</item><item>Sex</item><item>Sáb</item><item>Dom</item>
+    </string-array>
+    <string-array name="history_months">
+        <item>Jan</item><item>Fev</item><item>Mar</item><item>Abr</item><item>Mai</item><item>Jun</item>
+        <item>Jul</item><item>Ago</item><item>Set</item><item>Out</item><item>Nov</item><item>Dez</item>
+    </string-array>
+    <string-array name="history_weekday_names">
+        <item>Segunda-feira</item><item>Terça-feira</item><item>Quarta-feira</item><item>Quinta-feira</item>
+        <item>Sexta-feira</item><item>Sábado</item><item>Domingo</item>
+    </string-array>
+    <string-array name="history_month_names">
+        <item>janeiro</item><item>fevereiro</item><item>março</item><item>abril</item><item>maio</item><item>junho</item>
+        <item>julho</item><item>agosto</item><item>setembro</item><item>outubro</item><item>novembro</item><item>dezembro</item>
+    </string-array>
+</resources>

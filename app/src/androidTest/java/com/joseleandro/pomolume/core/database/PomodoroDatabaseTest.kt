@@ -47,6 +47,38 @@ class PomodoroDatabaseTest {
         }
     }
 
+    @Test fun dailyAggregationUsesLocalMidnightAndExcludesBreaksCancelledAndSkipped() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder(context, PomodoroDatabase::class.java).build()
+        try {
+            val repository = RoomHistoryRepository(database.sessionDao())
+            val zone = java.time.ZoneId.systemDefault()
+            val day = java.time.LocalDate.of(2026, 9, 24)
+            val midnight = day.atStartOfDay(zone).toInstant().toEpochMilli()
+            val tomorrow = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val base = PomodoroSession("at-start", SessionType.FOCUS, SessionStatus.COMPLETED,
+                midnight - 1_500_000, midnight, 1_500, 1_500)
+            repository.save(base.copy(id = "before-start", endedAt = midnight - 1))
+            repository.save(base)
+            repository.save(base.copy(id = "during", endedAt = midnight + 3_600_000, actualDurationSeconds = 900))
+            repository.save(base.copy(id = "at-end", endedAt = tomorrow))
+            repository.save(base.copy(id = "break", type = SessionType.SHORT_BREAK, endedAt = midnight + 1))
+            repository.save(base.copy(id = "long-break", type = SessionType.LONG_BREAK, endedAt = midnight + 2))
+            repository.save(base.copy(id = "cancelled", status = SessionStatus.CANCELLED, endedAt = midnight + 3))
+            repository.save(base.copy(id = "skipped", status = SessionStatus.SKIPPED, endedAt = midnight + 4))
+            val aggregated = repository.observeDailyFocus(midnight, tomorrow).first()
+            assertEquals(1, aggregated.size)
+            assertEquals(day, aggregated.single().date)
+            assertEquals(2_400L, aggregated.single().focusSeconds)
+            assertEquals(2, aggregated.single().completedPomodoros)
+            val allDays = repository.observeDailyFocus(null, null).first()
+            assertEquals(3, allDays.size)
+            assertEquals(day.minusDays(1), allDays.first().date)
+            assertEquals(day.plusDays(1), allDays.last().date)
+        } finally {
+            database.close()
+        }
+    }
+
     @Test fun versionOneMigrationPreservesCompletedAndCancelledHistory() = runBlocking {
         val databaseName = "migration-${UUID.randomUUID()}.db"
         val legacy = FrameworkSQLiteOpenHelperFactory().create(

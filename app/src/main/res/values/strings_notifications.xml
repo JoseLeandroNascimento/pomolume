@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_active_channel">Timer em andamento</string>
+    <string name="notification_paused">Pomodoro pausado</string>
+    <string name="notification_loading">Recuperando sessão…</string>
+    <string name="notification_saving">Salvando sessão. Tentando novamente…</string>
+    <string name="notification_remaining">%1$s restantes</string>
+    <string name="notification_resume">Continuar</string>
+    <string name="notification_pause">Pausar</string>
+    <string name="notification_reset">Reiniciar</string>
+    <string name="notification_skip">Pular</string>
+    <string name="notification_cancel">Cancelar</string>
+    <string name="notification_completion_channel">Conclusão • %1$s • %2$s</string>
+    <string name="notification_sound_on">som</string>
+    <string name="notification_sound_off">sem som</string>
+    <string name="notification_vibration_on">vibração</string>
+    <string name="notification_vibration_off">sem vibração</string>
+    <string name="notification_focus_completed">Pomodoro concluído</string>
+    <string name="notification_short_break_completed">Pausa concluída</string>
+    <string name="notification_long_break_completed">Pausa longa concluída</string>
+    <string name="notification_next_focus">Hora de voltar ao foco.</string>
+    <string name="notification_next_short_break">Ótimo trabalho. Hora de fazer uma pausa curta.</string>
+    <string name="notification_next_long_break">Ótimo trabalho. Aproveite uma pausa longa.</string>
+    <string name="notification_focus">Sessão de foco</string>
+    <string name="notification_short_break">Pausa curta</string>
+    <string name="notification_long_break">Pausa longa</string>
+    <string name="notification_start_error">Não foi possível iniciar o timer. Abra o aplicativo e tente novamente.</string>
+</resources>

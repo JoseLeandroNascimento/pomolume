@@ -45,7 +45,9 @@ private val pomodoroModule = module {
             .build()
     }
     single { get<PomodoroDatabase>().sessionDao() }
-    single<HistoryRepository> { RoomHistoryRepository(get()) }
+    single { RoomHistoryRepository(get()) }
+    single<HistoryRepository> { get<RoomHistoryRepository>() }
+    single<HistoryStatsRepository> { get<RoomHistoryRepository>() }
     single<PomodoroClock> { PomodoroClock(System::currentTimeMillis) }
     single<PomodoroRepository> { PomodoroRepositoryImpl(get(), get(), get(), get(), get()) }
     single<PomodoroServiceController> { AndroidPomodoroServiceController(androidContext(), get(), get()) }
@@ -54,11 +56,11 @@ private val pomodoroModule = module {
     factory { GetPomodoroCompletionsUseCase(get()) }
     factory { ControlPomodoroUseCase(get()) }
     factory { GetHistoryUseCase(get()) }
-    factory { GetTodaySummaryUseCase(get()) }
+    factory { GetHistoryStatsUseCase(get()) }
     factory { GetSettingsUseCase(get()) }
     factory { UpdateSettingsUseCase(get()) }
     viewModel { PomodoroViewModel(get(), get(), get(), get()) }
-    viewModel { HistoryViewModel(get(), get()) }
+    viewModel { HistoryViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get()) }
 }
 

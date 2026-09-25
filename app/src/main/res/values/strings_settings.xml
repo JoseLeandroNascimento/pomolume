@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="settings_section_pomodoro">Pomodoro</string>
+    <string name="settings_section_automation">Automação</string>
+    <string name="settings_section_notifications">Notificações</string>
+    <string name="settings_section_behavior">Comportamento</string>
+    <string name="settings_section_personalization">Personalização</string>
+    <string name="settings_section_appearance">Aparência</string>
+    <string name="settings_focus_duration">Duração do foco</string>
+    <string name="settings_short_break">Pausa curta</string>
+    <string name="settings_long_break">Pausa longa</string>
+    <string name="settings_long_break_after">Pausa longa após</string>
+    <plurals name="settings_duration_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+    <plurals name="settings_duration_cycles">
+        <item quantity="one">%1$d Pomodoro</item>
+        <item quantity="other">%1$d Pomodoros</item>
+    </plurals>
+    <string name="settings_duration_value">%1$d min</string>
+    <plurals name="settings_cycles_value">
+        <item quantity="one">%1$d ciclo</item>
+        <item quantity="other">%1$d ciclos</item>
+    </plurals>
+    <string name="settings_next_session_hint">Alterações de duração valem para a próxima sessão.</string>
+    <string name="settings_autostart_break">Iniciar pausas automaticamente</string>
+    <string name="settings_autostart_focus">Iniciar foco automaticamente</string>
+    <string name="settings_notify_completion">Notificar ao terminar</string>
+    <string name="settings_sound">Som</string>
+    <string name="settings_vibration">Vibração</string>
+    <string name="settings_keep_screen_on">Manter tela ligada durante sessão</string>
+    <string name="settings_confirm_skip">Confirmar antes de pular sessão</string>
+    <string name="settings_confirm_reset">Confirmar antes de reiniciar</string>
+    <string name="settings_timer_appearance">Estilo do timer</string>
+    <string name="settings_timer_appearance_hint">Escolha uma cor que ajude você a focar.</string>
+    <string name="settings_solid_colors">Cores sólidas</string>
+    <string name="settings_gradients">Gradientes</string>
+    <string name="settings_selected">Selecionado</string>
+    <string name="settings_not_selected">Não selecionado</string>
+    <string name="settings_style_selected">Selecionado: %1$s</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Escuro</string>
+    <string name="settings_save">Salvar</string>
+    <string name="settings_cancel">Cancelar</string>
+    <string name="settings_close">Fechar</string>
+    <string name="settings_decrease_duration">Diminuir duração</string>
+    <string name="settings_increase_duration">Aumentar duração</string>
+    <string name="settings_decrease_cycles">Diminuir ciclos</string>
+    <string name="settings_increase_cycles">Aumentar ciclos</string>
+    <!-- These upper bounds are always plural: duration limits are 60/120, and the cycle limit is 10. -->
+    <string name="settings_duration_range" tools:ignore="PluralsCandidate">De 1 a %1$d minutos</string>
+    <string name="settings_cycles_range" tools:ignore="PluralsCandidate">De 1 a %1$d ciclos</string>
+    <string name="settings_quick_presets">Escolhas rápidas</string>
+    <string name="settings_error_load">Não foi possível carregar suas configurações.</string>
+    <string name="settings_error_save">Não foi possível salvar. Tente novamente.</string>
+    <string name="settings_retry">Tentar novamente</string>
+    <string name="settings_loading">Carregando configurações</string>
+</resources>

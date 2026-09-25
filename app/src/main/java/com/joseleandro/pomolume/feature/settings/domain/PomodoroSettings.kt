@@ -20,13 +20,15 @@ data class PomodoroSettings(
     val keepScreenOn: Boolean = false,
     val confirmSkip: Boolean = true,
     val confirmReset: Boolean = true,
-    val theme: AppTheme = AppTheme.SYSTEM
+    val theme: AppTheme = AppTheme.SYSTEM,
+    val timerAppearance: TimerAppearance = TimerAppearance()
 ) {
     fun validated() = copy(
         focusDurationMinutes = focusDurationMinutes.coerceIn(1, 120),
         shortBreakDurationMinutes = shortBreakDurationMinutes.coerceIn(1, 60),
         longBreakDurationMinutes = longBreakDurationMinutes.coerceIn(1, 120),
-        cyclesBeforeLongBreak = cyclesBeforeLongBreak.coerceIn(1, 10)
+        cyclesBeforeLongBreak = cyclesBeforeLongBreak.coerceIn(1, 10),
+        timerAppearance = timerAppearance.validated()
     )
 }
 

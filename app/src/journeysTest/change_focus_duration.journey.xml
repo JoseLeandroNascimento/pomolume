@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <journey name="Change and persist focus duration">
-    <description>With fresh app data, change the focus duration from 25 to 30 minutes and verify the idle timer and settings reflect the saved value.</description>
+    <description>Use a dedicated test profile with freshly provisioned app data, default four-cycle settings and automatic starts disabled; do not reset or clear a user's personal app data. Save a quick duration preset, verify it persists, and confirm that changing duration does not modify an active session. Cancelling the sequence then prepares a new focus with the updated duration.</description>
     <actions xml:space="preserve">
-        <action>Verify that the timer shows '25:00'</action>
+        <action>Verify that 'Foco' and the timer value '25:00' are visible</action>
         <action>Tap the 'Configurações' button</action>
         <action>Tap 'Duração do foco'</action>
-        <action>Tap the 'Aumentar duração' button</action>
-        <action>Tap the 'Aumentar duração' button</action>
-        <action>Tap the 'Aumentar duração' button</action>
-        <action>Tap the 'Aumentar duração' button</action>
-        <action>Tap the 'Aumentar duração' button</action>
+        <action>Tap the '30 min' quick preset</action>
         <action>Verify that the selected duration is '30 min'</action>
         <action>Tap 'Salvar'</action>
         <action>Tap the 'Voltar' button</action>
@@ -17,7 +13,7 @@
         <action>Tap the 'Configurações' button</action>
         <action>Tap 'Duração do foco'</action>
         <action>Verify that the selected duration is still '30 min'</action>
-        <action>Tap 'Cancelar'</action>
+        <action>Tap 'Cancelar' inside the duration dialog</action>
         <action>Tap the 'Voltar' button</action>
         <action>Tap 'Iniciar'</action>
         <action>If the 'Receber avisos de sessão' dialog appears, tap 'Permitir'</action>
@@ -28,8 +24,12 @@
         <action>Tap the 'Configurações' button</action>
         <action>Tap 'Duração do foco'</action>
         <action>Tap the 'Aumentar duração' button</action>
+        <action>Verify that the selected duration is '31 min'</action>
         <action>Tap 'Salvar'</action>
         <action>Tap the 'Voltar' button</action>
         <action>Verify that the paused remaining time is unchanged</action>
+        <action>Tap 'Cancelar Pomodoro'</action>
+        <action>Tap 'Cancelar Pomodoro' inside the confirmation dialog</action>
+        <action>Verify that 'Foco', '31:00', 'Ciclo 1 de 4' and 'Iniciar' are visible</action>
     </actions>
 </journey>

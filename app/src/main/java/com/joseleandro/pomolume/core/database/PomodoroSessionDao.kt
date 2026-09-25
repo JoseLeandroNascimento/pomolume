@@ -24,11 +24,10 @@ interface PomodoroSessionDao {
 
     @Query("""
         SELECT * FROM pomodoro_sessions
-        WHERE (:startDate IS NULL OR endedAt >= :startDate)
-          AND (:endDate IS NULL OR endedAt < :endDate)
+        WHERE endedAt >= :startDate AND endedAt < :endDate
         ORDER BY endedAt DESC, id DESC
     """)
-    fun observePeriod(startDate: Long?, endDate: Long?): Flow<List<PomodoroSessionEntity>>
+    fun observePeriod(startDate: Long, endDate: Long): Flow<List<PomodoroSessionEntity>>
 
     // Caller supplies local date boundaries; SQL does not assume a fixed timezone or 24h day.
     @Query("""
@@ -51,4 +50,35 @@ interface PomodoroSessionDao {
           AND endedAt >= :startDate AND endedAt < :endDate
     """)
     fun sumFocusSeconds(startDate: Long, endDate: Long): Flow<Long>
+
+    @Query("""
+        SELECT strftime('%Y-%m-%d', endedAt / 1000, 'unixepoch', 'localtime') AS localDate,
+            COALESCE(SUM(MAX(0, MIN(actualDurationSeconds, plannedDurationSeconds))), 0) AS focusSeconds,
+            COUNT(*) AS completedPomodoros
+        FROM pomodoro_sessions
+        WHERE type = 'FOCUS' AND status = 'COMPLETED'
+          AND endedAt >= :startDate AND endedAt < :endDate
+        GROUP BY localDate
+        ORDER BY localDate
+    """)
+    fun observeDailyFocus(startDate: Long, endDate: Long): Flow<List<DailyFocusAggregate>>
+
+    @Query("""
+        SELECT strftime('%Y-%m-%d', endedAt / 1000, 'unixepoch', 'localtime') AS localDate,
+            COALESCE(SUM(MAX(0, MIN(actualDurationSeconds, plannedDurationSeconds))), 0) AS focusSeconds,
+            COUNT(*) AS completedPomodoros
+        FROM pomodoro_sessions
+        WHERE type = 'FOCUS' AND status = 'COMPLETED'
+        GROUP BY localDate
+        ORDER BY localDate
+    """)
+    fun observeAllDailyFocus(): Flow<List<DailyFocusAggregate>>
 }
+
+/** The localtime modifier follows the device timezone, including each date's DST offset. */
+data class DailyFocusAggregate(
+    val localDate: String,
+    val focusSeconds: Long,
+    val completedPomodoros: Int
+)
+

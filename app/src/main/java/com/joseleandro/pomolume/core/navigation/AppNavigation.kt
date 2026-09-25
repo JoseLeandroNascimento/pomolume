@@ -6,6 +6,16 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
+import com.joseleandro.pomolume.R
+import com.joseleandro.pomolume.core.design.PomodoroTimer
+import com.joseleandro.pomolume.core.design.AppElevation
+import com.joseleandro.pomolume.feature.pomodoro.domain.TimerState
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.History
@@ -20,6 +30,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -38,19 +49,19 @@ import com.joseleandro.pomolume.feature.settings.presentation.SettingsScreen
 import com.joseleandro.pomolume.feature.settings.presentation.SettingsViewModel
 import org.koin.androidx.compose.koinViewModel
 
-private const val TIMER = "pomodoro"
-private const val HISTORY = "history"
-private const val SETTINGS = "settings"
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PomoLumeApp(
     notificationAction: String? = null,
+    notificationSessionId: String? = null,
     onNotificationActionConsumed: () -> Unit = {},
     pomodoroViewModel: PomodoroViewModel = koinViewModel(),
-    historyViewModel: HistoryViewModel = koinViewModel(),
+    historyViewModel: HistoryViewModel? = null,
     settingsViewModel: SettingsViewModel = koinViewModel()
 ) {
+    // Capture the original owner before NavHost supplies a destination owner.
+    // History is created on demand but retains the same Activity scope and saved state.
+    val appViewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current)
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val keepScreenOn by pomodoroViewModel.keepScreenOn.collectAsStateWithLifecycle()
     val view = LocalView.current
@@ -61,23 +72,33 @@ fun PomoLumeApp(
     PomoTheme(settingsState.settings.theme) {
         val nav = rememberNavController()
         val backStack by nav.currentBackStackEntryAsState()
-        val route = backStack?.destination?.route ?: TIMER
+        val destination = backStack?.destination
+        val isHistory = destination?.hasRoute<HistoryRoute>() == true
+        val isSettings = destination?.hasRoute<SettingsRoute>() == true
         val snackbar = remember { SnackbarHostState() }
         val context = LocalContext.current
+        val focusCompleted by rememberUpdatedState(stringResource(R.string.pomodoro_focus_completed))
+        val breakCompleted by rememberUpdatedState(stringResource(R.string.pomodoro_break_completed))
         var permissionAsked by rememberSaveable { mutableStateOf(false) }
         var showRationale by rememberSaveable { mutableStateOf(false) }
-        var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+        var pendingAction by rememberSaveable { mutableStateOf<String?>(null) }
+        val performPermissionAction: (String?) -> Unit = { action ->
+            when (action) {
+                "START" -> pomodoroViewModel.onAction(PomodoroAction.START)
+                "ENABLE_NOTIFICATIONS" -> settingsViewModel.update { it.copy(notificationsEnabled = true) }
+            }
+        }
         val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            pendingAction?.invoke()
+            performPermissionAction(pendingAction)
             pendingAction = null
         }
-        val withPermission: (() -> Unit) -> Unit = { action ->
+        val withPermission: (String) -> Unit = { action ->
             val needed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            if (needed && !permissionAsked) {
+            if (needed && (!permissionAsked || action == "ENABLE_NOTIFICATIONS")) {
                 pendingAction = action
                 showRationale = true
-            } else action()
+            } else performPermissionAction(action)
         }
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         LaunchedEffect(lifecycle, pomodoroViewModel) {
@@ -85,14 +106,14 @@ fun PomoLumeApp(
                 pomodoroViewModel.recover()
                 pomodoroViewModel.completions.collect { completion ->
                     snackbar.showSnackbar(
-                        if (completion.sessionType == SessionType.FOCUS) "Pomodoro concluído" else "Pausa concluída",
+                        if (completion.sessionType == SessionType.FOCUS) focusCompleted else breakCompleted,
                         duration = SnackbarDuration.Short
                     )
                 }
             }
         }
         LaunchedEffect(notificationAction) {
-            if (notificationAction != null) nav.navigate(TIMER) {
+            if (notificationAction != null) nav.navigate(PomodoroRoute) {
                 popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
                 restoreState = true
@@ -101,34 +122,35 @@ fun PomoLumeApp(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(when (route) { HISTORY -> "Histórico"; SETTINGS -> "Configurações"; else -> "Pomodoro" }) },
+                    title = { Text(stringResource(when { isHistory -> R.string.navigation_history; isSettings -> R.string.navigation_settings; else -> R.string.pomodoro_title })) },
                     navigationIcon = {
-                        if (route == SETTINGS) IconButton(onClick = { nav.popBackStack() }) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Voltar")
+                        if (isSettings) IconButton(onClick = { nav.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.navigation_back))
                         }
                     },
                     actions = {
-                        if (route == TIMER) IconButton(onClick = { nav.navigate(SETTINGS) { launchSingleTop = true } }) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "Configurações")
+                        if (!isSettings && !isHistory) IconButton(onClick = { nav.navigate(SettingsRoute) { launchSingleTop = true } }) {
+                            Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.navigation_settings))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             },
             bottomBar = {
-                if (route != SETTINGS) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = androidx.compose.ui.unit.Dp(0f)) {
-                    listOf(TIMER to "Pomodoro", HISTORY to "Histórico").forEach { (destination, label) ->
+                if (!isSettings) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = AppElevation.none) {
+                    listOf(PomodoroRoute to R.string.pomodoro_title, HistoryRoute to R.string.navigation_history).forEach { (target, label) ->
                         NavigationBarItem(
-                            selected = route == destination,
+                            selected = if (target == PomodoroRoute) !isHistory else isHistory,
+                            modifier = Modifier.testTag(if (target == PomodoroRoute) "tab_pomodoro" else "tab_history"),
                             onClick = {
-                                nav.navigate(destination) {
+                                nav.navigate(target) {
                                     popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(if (destination == TIMER) Icons.Outlined.Timer else Icons.Outlined.History, contentDescription = null) },
-                            label = { Text(label) }
+                            icon = { Icon(if (target == PomodoroRoute) Icons.Outlined.Timer else Icons.Outlined.History, contentDescription = null) },
+                            label = { Text(stringResource(label)) }
                         )
                     }
                 }
@@ -136,29 +158,39 @@ fun PomoLumeApp(
             snackbarHost = { SnackbarHost(snackbar) },
             containerColor = MaterialTheme.colorScheme.background
         ) { padding ->
-            NavHost(navController = nav, startDestination = TIMER,
+            NavHost(navController = nav, startDestination = PomodoroRoute,
+                enterTransition = { fadeIn(tween(160)) }, exitTransition = { fadeOut(tween(120)) },
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
-                composable(TIMER) {
-                    val state by pomodoroViewModel.uiState.collectAsStateWithLifecycle()
+                composable<PomodoroRoute>() {
+                    val state by pomodoroViewModel.layoutState.collectAsStateWithLifecycle()
                     PomodoroScreen(
                         state = state,
                         onAction = { action ->
                             if (action == PomodoroAction.START && state.settings.notificationsEnabled) {
-                                withPermission { pomodoroViewModel.onAction(action) }
-                            } else pomodoroViewModel.onAction(action)
+                                withPermission("START")
+                            } else if (state.timer.sessionId.isBlank()) {
+                                pomodoroViewModel.onAction(action)
+                            } else pomodoroViewModel.onActionForSession(action, state.timer.sessionId)
                         },
                         onRetry = pomodoroViewModel::recover,
                         notificationAction = notificationAction,
-                        onNotificationActionConsumed = onNotificationActionConsumed
+                        notificationSessionId = notificationSessionId,
+                        onNotificationActionConsumed = onNotificationActionConsumed,
+                        timerContent = { diameter ->
+                            val reading by pomodoroViewModel.uiState.collectAsStateWithLifecycle()
+                            PomodoroTimer(reading.timer.remainingTimeMillis, reading.timer.progress, reading.timer.sessionType,
+                                reading.timer.timerState == TimerState.PAUSED, diameter, reading.settings.timerAppearance)
+                        }
                     )
                 }
-                composable(HISTORY) {
-                    val state by historyViewModel.uiState.collectAsStateWithLifecycle()
-                    HistoryScreen(state, historyViewModel::selectFilter, historyViewModel::retry)
+                composable<HistoryRoute>() {
+                    val history = historyViewModel ?: koinViewModel<HistoryViewModel>(viewModelStoreOwner = appViewModelStoreOwner)
+                    val state by history.uiState.collectAsStateWithLifecycle()
+                    HistoryScreen(state, history::selectFilter, history::retry)
                 }
-                composable(SETTINGS) {
+                composable<SettingsRoute>() {
                     SettingsScreen(settingsState, settingsViewModel::update,
-                        onEnableNotifications = { withPermission { settingsViewModel.update { it.copy(notificationsEnabled = true) } } },
+                        onEnableNotifications = { withPermission("ENABLE_NOTIFICATIONS") },
                         onRetry = settingsViewModel::load)
                 }
             }
@@ -167,25 +199,30 @@ fun PomoLumeApp(
             onDismissRequest = {
                 showRationale = false
                 permissionAsked = true
-                pendingAction?.invoke()
+                performPermissionAction(pendingAction)
                 pendingAction = null
             },
-            title = { Text("Receber avisos de sessão") },
-            text = { Text("Permita notificações para saber quando o foco ou a pausa terminar, mesmo com o app minimizado.") },
+            title = { Text(stringResource(R.string.permission_title)) },
+            text = { Text(stringResource(R.string.permission_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     showRationale = false
                     permissionAsked = true
-                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }) { Text("Permitir") }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        performPermissionAction(pendingAction)
+                        pendingAction = null
+                    }
+                }) { Text(stringResource(R.string.permission_allow)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showRationale = false
                     permissionAsked = true
-                    pendingAction?.invoke()
+                    performPermissionAction(pendingAction)
                     pendingAction = null
-                }) { Text("Agora não") }
+                }) { Text(stringResource(R.string.permission_later)) }
             }
         )
     }

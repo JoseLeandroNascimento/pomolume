@@ -14,6 +14,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 
 data class PomodoroUiState(
@@ -23,6 +27,7 @@ data class PomodoroUiState(
     val isBusy: Boolean = false
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PomodoroViewModel(
     getState: GetPomodoroStateUseCase,
     private val control: ControlPomodoroUseCase,
@@ -32,23 +37,38 @@ class PomodoroViewModel(
     val completions = getCompletions()
     private val error = MutableStateFlow<String?>(null)
     private val busy = MutableStateFlow(false)
+    private val settingsReload = MutableStateFlow(0)
+    private val settings = settingsReload.flatMapLatest {
+        getSettings().catch { error.value = "settings"; emit(PomodoroSettings()) }
+    }
     val uiState = combine(
         getState(),
-        getSettings().catch { emit(PomodoroSettings()); error.value = "Não foi possível carregar as preferências." },
+        settings,
         error,
         busy
     ) { timer, settings, message, isBusy ->
         PomodoroUiState(timer, settings, message ?: timer.error, isBusy)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PomodoroUiState())
 
-    val keepScreenOn = kotlinx.coroutines.flow.map(uiState) {
+    // Only the readout consumes ticking state; controls and layout change on transitions.
+    val layoutState = uiState.map { state ->
+        state.copy(timer = state.timer.copy(remainingTimeMillis = state.timer.totalDurationMillis))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PomodoroUiState())
+
+    val keepScreenOn = uiState.map {
         it.settings.keepScreenOn && it.timer.timerState == com.joseleandro.pomolume.feature.pomodoro.domain.TimerState.RUNNING
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init { recover() }
 
-    fun recover() = execute { control.recover() }
+    fun recover() {
+        settingsReload.update { it + 1 }
+        execute { control.recover() }
+    }
     fun onAction(action: PomodoroAction) = execute { control(action) }
+    fun onActionForSession(action: PomodoroAction, sessionId: String) = execute {
+        control.forSession(action, sessionId)
+    }
     fun dismissError() { error.value = null }
 
     private fun execute(block: suspend () -> Unit) {
@@ -61,7 +81,7 @@ class PomodoroViewModel(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                error.value = "Não foi possível atualizar o timer. Tente novamente."
+                error.value = "action"
             } finally {
                 busy.value = false
             }

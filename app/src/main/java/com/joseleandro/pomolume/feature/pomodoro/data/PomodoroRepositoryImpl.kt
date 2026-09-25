@@ -17,6 +17,8 @@ import com.joseleandro.pomolume.feature.settings.domain.SettingsRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,7 +64,12 @@ class PomodoroRepositoryImpl(
                 .collect { updated ->
                     guarded {
                         val validated = updated.validated()
-                        pendingSettingsChange = pendingSettingsChange || (restored && settings != validated)
+                        val durationChanged = when (mutableState.value.sessionType) {
+                            SessionType.FOCUS -> settings.focusDurationMinutes != validated.focusDurationMinutes
+                            SessionType.SHORT_BREAK -> settings.shortBreakDurationMinutes != validated.shortBreakDurationMinutes
+                            SessionType.LONG_BREAK -> settings.longBreakDurationMinutes != validated.longBreakDurationMinutes
+                        }
+                        pendingSettingsChange = pendingSettingsChange || (restored && durationChanged)
                         settings = validated
                         if (restored) applySettings()
                     }
@@ -80,8 +87,19 @@ class PomodoroRepositoryImpl(
         refreshLocked()
     }
 
-    override suspend fun execute(action: PomodoroAction) = guarded {
+    override suspend fun execute(action: PomodoroAction) = executeChecked(action, null)
+
+    override suspend fun executeForSession(action: PomodoroAction, sessionId: String) =
+        executeChecked(action, sessionId)
+
+    private suspend fun executeChecked(action: PomodoroAction, expectedSessionId: String?) = guarded {
         ensureRestored()
+        if (expectedSessionId != null &&
+            (expectedSessionId.isBlank() || expectedSessionId != mutableState.value.sessionId)) return@guarded
+        if (action == PomodoroAction.CANCEL) {
+            cancelSequence()
+            return@guarded
+        }
         // An action tapped against an expired session must not reset/skip its successor.
         if (refreshLocked()) return@guarded
         val current = mutableState.value
@@ -129,6 +147,21 @@ class PomodoroRepositoryImpl(
                 ))
             }
             PomodoroAction.SKIP -> beginTerminal(PendingTransition.SKIP, clock.now())
+            PomodoroAction.CANCEL -> Unit // Handled before expiry/automation above.
+        }
+    }
+
+    private suspend fun cancelSequence() {
+        val current = mutableState.value
+        when {
+            current.pendingTransition != null -> {
+                // Preserve an already committed history outcome, but durably suppress its
+                // successor so a retry/process restart cannot restart an automated cycle.
+                commit(current.copy(cancelAfterTransition = true))
+                finishTerminal()
+            }
+            current.startedAt != null -> beginTerminal(PendingTransition.CANCEL, clock.now())
+            else -> commit(fresh(SessionType.FOCUS, 0))
         }
     }
 
@@ -154,7 +187,7 @@ class PomodoroRepositoryImpl(
             sessionId = if (active && saved.sessionId.isBlank()) UUID.randomUUID().toString() else saved.sessionId,
             timerState = if (terminal != null) TimerState.COMPLETED else saved.timerState,
             totalDurationMillis = duration,
-            remainingTimeMillis = remaining,
+            remainingTimeMillis = if (terminal == PendingTransition.COMPLETE) 0 else remaining,
             startedAt = if (active) saved.startedAt?.coerceIn(0L, now) ?: now else null,
             expectedEndAt = if (saved.timerState == TimerState.RUNNING) {
                 saved.expectedEndAt?.takeIf { it >= 0 }?.coerceAtMost(now + duration) ?: now + remaining
@@ -223,7 +256,7 @@ class PomodoroRepositoryImpl(
         val transition = terminal.pendingTransition ?: return
         val status = when (transition) {
             PendingTransition.COMPLETE -> SessionStatus.COMPLETED
-            PendingTransition.RESET -> SessionStatus.CANCELLED
+            PendingTransition.RESET, PendingTransition.CANCEL -> SessionStatus.CANCELLED
             PendingTransition.SKIP -> SessionStatus.SKIPPED
         }
         historyRepository.save(PomodoroSession(
@@ -236,6 +269,10 @@ class PomodoroRepositoryImpl(
             actualDurationSeconds = (terminal.totalDurationMillis - terminal.remainingTimeMillis)
                 .coerceIn(0, terminal.totalDurationMillis) / 1_000
         ))
+        if (transition == PendingTransition.CANCEL || terminal.cancelAfterTransition) {
+            commit(fresh(SessionType.FOCUS, 0))
+            return
+        }
         if (transition == PendingTransition.RESET) {
             commit(fresh(terminal.sessionType, terminal.completedFocusCount).copy(
                 totalDurationMillis = terminal.totalDurationMillis,
@@ -247,7 +284,7 @@ class PomodoroRepositoryImpl(
         val completedFocusCount = when {
             terminal.sessionType == SessionType.LONG_BREAK -> 0
             terminal.sessionType == SessionType.FOCUS && transition == PendingTransition.COMPLETE ->
-                terminal.completedFocusCount + 1
+                (terminal.completedFocusCount + 1).coerceAtMost(10)
             else -> terminal.completedFocusCount
         }
         val nextType = when (terminal.sessionType) {
@@ -267,10 +304,10 @@ class PomodoroRepositoryImpl(
                 expectedEndAt = now + next.totalDurationMillis
             )
         }
-        commit(next)
-        if (transition == PendingTransition.COMPLETE) {
-            mutableCompletions.tryEmit(CompletionEvent(terminal.sessionId, terminal.sessionType, nextType))
-        }
+        val completion = if (transition == PendingTransition.COMPLETE) {
+            CompletionEvent(terminal.sessionId, terminal.sessionType, nextType)
+        } else null
+        commit(next, completion)
     }
 
     private fun remaining(current: PomodoroState, now: Long): Long =
@@ -293,11 +330,15 @@ class PomodoroRepositoryImpl(
         isLoading = false
     )
 
-    private suspend fun commit(candidate: PomodoroState) {
-        val clean = candidate.copy(isLoading = false, error = null)
-        store.write(clean)
-        mutableState.value = clean
-    }
+    private suspend fun commit(candidate: PomodoroState, completion: CompletionEvent? = null) =
+        withContext(NonCancellable) {
+            // Once storage begins, coroutine cancellation must not leave the service seeing
+            // stale IDLE after a RUNNING deadline was persisted (or lose its completion event).
+            val clean = candidate.copy(isLoading = false, error = null)
+            store.write(clean)
+            mutableState.value = clean
+            if (completion != null) mutableCompletions.emit(completion)
+        }
 
     private suspend fun guarded(block: suspend () -> Unit) {
         mutex.withLock {
@@ -311,7 +352,7 @@ class PomodoroRepositoryImpl(
             } catch (_: Exception) {
                 mutableState.value = mutableState.value.copy(
                     isLoading = false,
-                    error = "Não foi possível salvar a sessão. Tente novamente."
+                    error = PomodoroState.ERROR_STORAGE
                 )
             }
         }

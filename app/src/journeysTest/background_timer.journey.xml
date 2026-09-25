@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <journey name="Continue a focus session in the background">
-    <description>With fresh app data, verify that a running focus session continues when the app is minimized, and that the persistent notification offers working pause and resume controls.</description>
+    <description>Use a dedicated test profile with freshly provisioned app data, default four-cycle settings and automatic starts disabled; do not reset or clear a user's personal app data. Verify timestamp-based progress in the background, notification pause and resume, and explicit cancellation at the end.</description>
     <actions xml:space="preserve">
-        <action>Verify that the timer shows '25:00'</action>
+        <action>Verify that 'Foco' and the timer value '25:00' are visible</action>
         <action>Tap 'Iniciar'</action>
         <action>If the 'Receber avisos de sessão' dialog appears, tap 'Permitir'</action>
         <action>If Android asks for notification permission, allow notifications</action>
@@ -11,10 +11,10 @@
         <action>Press the device Home button</action>
         <action>Wait 10 seconds</action>
         <action>Return to PomoLume using the device recent apps screen</action>
-        <action>Verify that 'Sessão de foco' and the 'Pausar' button are visible</action>
+        <action>Verify that 'Foco' and the 'Pausar' button are visible</action>
         <action>Verify that the remaining time is at least 10 seconds lower than the previously remembered time</action>
         <action>Open the device notification shade</action>
-        <action>Verify that the ongoing session notification is visible</action>
+        <action>Verify that the ongoing Pomodoro timer notification is visible</action>
         <action>Tap 'Pausar' in the ongoing session notification</action>
         <action>Return to PomoLume using the device recent apps screen</action>
         <action>Verify that the 'Continuar' button is visible</action>
@@ -25,5 +25,9 @@
         <action>Verify that the remaining time has not changed while paused</action>
         <action>Tap 'Continuar'</action>
         <action>Verify that the 'Pausar' button is visible</action>
+        <action>Tap 'Cancelar Pomodoro'</action>
+        <action>Verify that the 'Cancelar Pomodoro?' confirmation explains that the current sequence will end</action>
+        <action>Tap 'Cancelar Pomodoro' inside the confirmation dialog</action>
+        <action>Verify that 'Foco', '25:00', 'Ciclo 1 de 4' and 'Iniciar' are visible</action>
     </actions>
 </journey>

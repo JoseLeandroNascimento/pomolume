@@ -14,6 +14,7 @@ import com.joseleandro.pomolume.feature.pomodoro.domain.TimerStateStore
 import com.joseleandro.pomolume.feature.settings.domain.PomodoroSettings
 import com.joseleandro.pomolume.feature.settings.domain.SettingsRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -406,8 +407,24 @@ class PomodoroRepositoryImplTest {
     fun concurrentStartsAreSerializedAndKeepOneSession() = runTest {
         val f = fixture()
         f.engine.restore()
+        runCurrent()
         val writes = f.store.writes
-        (1..20).map { async { f.engine.execute(PomodoroAction.START) } }.awaitAll()
+        val writeGate = CompletableDeferred<Unit>()
+        f.store.writeGate = writeGate
+        val starts = (1..20).map { async { f.engine.execute(PomodoroAction.START) } }
+
+        // Keep the first transition suspended before it can publish RUNNING. Every other
+        // caller now contends for the mutex while the visible state is still IDLE.
+        runCurrent()
+        try {
+            assertEquals(writes + 1, f.store.writes)
+            assertEquals(TimerState.IDLE, f.state.timerState)
+            assertTrue(starts.none { it.isCompleted })
+        } finally {
+            writeGate.complete(Unit)
+        }
+
+        starts.awaitAll()
         assertEquals(writes + 1, f.store.writes)
         assertEquals(TimerState.RUNNING, f.state.timerState)
         assertTrue(f.history.sessions.isEmpty())
@@ -564,6 +581,7 @@ class PomodoroRepositoryImplTest {
         var failWriteNumber = -1
         var failReads = false
         var cancelWrites = false
+        var writeGate: CompletableDeferred<Unit>? = null
         override suspend fun read(): PomodoroState? {
             check(!failReads) { "Storage temporarily unavailable" }
             return saved
@@ -572,6 +590,7 @@ class PomodoroRepositoryImplTest {
             if (cancelWrites) throw CancellationException("Test cancellation")
             writes++
             check(writes != failWriteNumber) { "Storage temporarily unavailable" }
+            writeGate?.await()
             saved = state
         }
     }

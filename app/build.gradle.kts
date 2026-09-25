@@ -44,8 +44,9 @@ ksp {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-    androidTestImplementation("androidx.test:core-ktx:1.7.0")
+    coreLibraryDesugaring(libs.android.desugar.jdk)
+    androidTestImplementation(libs.androidx.test.core)
+    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -64,10 +65,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
-    // Navigation 3
-    implementation(libs.androidx.navigation3.runtime)
-    implementation(libs.androidx.navigation3.ui)
-    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    // Typed Navigation Compose routes use Kotlin serialization.
     implementation(libs.kotlinx.serialization.json)
 
     // Room
